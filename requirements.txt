@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+python-telegram-bot[ext]
+firebase-admin
+pydantic-settings
+apscheduler
+python-dotenv
