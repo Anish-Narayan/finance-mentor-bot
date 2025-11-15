@@ -1,4 +1,3 @@
-# app/nlp/parser.py
 import re
 from typing import Dict, Any, Optional
 
@@ -13,7 +12,8 @@ INTENT_KEYWORDS = {
 
 STOP_WORDS = {'on', 'for', 'at', 'a', 'the', 'my', 'i', 'in', 'of', 'was', 'is'}
 
-AMOUNT_REGEX = r'₹?\s?(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?|\d+(\.\d{1,2})?)'
+# FIXED: handles "1000000", "1,000,000", "₹1000000", "₹ 1,000,000.50"
+AMOUNT_REGEX = r'₹?\s?((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,2})?)'
 
 
 def get_intent(text: str) -> str:
@@ -24,8 +24,8 @@ def get_intent(text: str) -> str:
         if any(keyword in text_lower for keyword in keywords):
             return intent
 
-    # If there is a number, default to expense (transaction)
-    if re.search(AMOUNT_REGEX, text):
+    # If there is a number, default to expense
+    if re.search(AMOUNT_REGEX, text_lower):
         return 'expense'
 
     return 'unknown'
@@ -36,30 +36,28 @@ def parse_transaction_message(text: str) -> Optional[Dict[str, Any]]:
     text_lower = text.lower()
 
     # Determine transaction type
-    if any(k in text_lower for k in INTENT_KEYWORDS['income']):
-        txn_type = 'income'
-    else:
-        txn_type = 'expense'
+    txn_type = 'income' if any(k in text_lower for k in INTENT_KEYWORDS['income']) else 'expense'
 
-    # Extract amount (supports ₹, commas, decimals)
-    match = re.search(AMOUNT_REGEX, text)
+    # Extract amount
+    match = re.search(AMOUNT_REGEX, text_lower)
     if not match:
         return None
 
-    raw_amount = match.group(1).replace(',', '')
-    amount = float(raw_amount)
+    raw_amount = match.group(1)
+    amount = float(raw_amount.replace(',', ''))
 
-    # Extract category
-    category_text = text_lower.replace(raw_amount, '')
+    # Remove the matched amount token (match.group(0) includes currency symbol)
+    category_text = text_lower.replace(match.group(0), '')
 
-    for keyword_list in INTENT_KEYWORDS.values():
-        for k in keyword_list:
-            category_text = category_text.replace(k, '')
+    # Remove intent-related keywords
+    for kw_list in INTENT_KEYWORDS.values():
+        for kw in kw_list:
+            category_text = category_text.replace(kw, '')
 
-    for sw in STOP_WORDS:
-        category_text = category_text.replace(f' {sw} ', ' ')
+    # Clean stopwords (token-based)
+    tokens = [t for t in category_text.split() if t not in STOP_WORDS]
+    category = " ".join(tokens).strip()
 
-    category = category_text.strip(' .₹').strip()
     if not category:
         category = "general"
 
