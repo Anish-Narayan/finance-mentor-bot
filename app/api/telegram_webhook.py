@@ -1,4 +1,3 @@
-# app/api/telegram_webhook.py
 from fastapi import APIRouter, Request
 from telegram import Update
 from app.bot_setup import application
@@ -37,7 +36,7 @@ async def telegram_webhook(request: Request):
 
     elif intent in ('expense', 'income'):
         # Process either an expense or income
-        response_message = await finance_service.process_transaction(user_id, text, intent=intent)
+        response_message = await finance_service.process_transaction(user_id, text)
 
     elif intent == 'summary':
         response_message = await finance_service.generate_weekly_summary(user_id)
